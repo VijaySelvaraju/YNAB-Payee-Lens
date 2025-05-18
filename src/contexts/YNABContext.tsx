@@ -28,8 +28,17 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const [payeeAnalysis, setPayeeAnalysis] = useState<PayeeAnalysis[]>([]);
 
   const setApiToken = (token: string) => {
-    setApiTokenState(token);
-    ynabService.setApiToken(token);
+    // Clean the token by removing any whitespace and quotes
+    const cleanToken = token.trim().replace(/^["']|["']$/g, "");
+    
+    // Check if token looks like a URL or other non-token format
+    if (cleanToken.includes("http") || cleanToken.length < 10) {
+      toast.error("The API token format appears invalid. Please check your YNAB token.");
+      return;
+    }
+
+    setApiTokenState(cleanToken);
+    ynabService.setApiToken(cleanToken);
   };
 
   const setSelectedBudgetId = (budgetId: string) => {
@@ -39,6 +48,14 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const fetchBudgets = async () => {
     setIsLoading(true);
     try {
+      // Validate token first
+      if (!apiToken || apiToken.trim().length < 10) {
+        toast.error("Invalid API token. Please provide a valid YNAB API token.");
+        setIsAuthenticated(false);
+        return [];
+      }
+      
+      console.log("Fetching budgets with token (first 4 chars):", apiToken.substring(0, 4) + "****");
       const budgetsList = await ynabService.getBudgets();
       setBudgets(budgetsList);
       setIsAuthenticated(true);
