@@ -12,8 +12,8 @@ interface YNABContextType {
   payeeAnalysis: PayeeAnalysis[];
   setApiToken: (token: string) => void;
   setSelectedBudgetId: (budgetId: string) => void;
-  fetchBudgets: () => Promise<void>;
-  analyzePayees: () => Promise<void>;
+  fetchBudgets: () => Promise<YNABBudget[]>;
+  analyzePayees: () => Promise<PayeeAnalysis[]>;
   reset: () => void;
 }
 
@@ -57,7 +57,7 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const analyzePayees = async () => {
     if (!selectedBudgetId) {
       toast.error("Please select a budget first");
-      return;
+      return [];
     }
 
     setIsLoading(true);

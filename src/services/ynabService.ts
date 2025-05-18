@@ -98,6 +98,14 @@ export interface PayeeAnalysis {
   averageAmount: number;
 }
 
+export interface UnusedPayeeAnalysis {
+  id: string;
+  name: string;
+  lastUsed?: string;
+  daysSinceLastUsed?: number;
+  isUnused: boolean;
+}
+
 // YNAB API Service
 class YNABService {
   private apiToken: string = '';
@@ -155,6 +163,68 @@ class YNABService {
   public async getCategories(budgetId: string): Promise<YNABCategoryGroup[]> {
     const data = await this.fetchFromAPI(`/budgets/${budgetId}/categories`);
     return data.category_groups;
+  }
+
+  // Find unused payees (no transactions in the last X days)
+  public async findUnusedPayees(budgetId: string, dayThreshold: number = 90): Promise<UnusedPayeeAnalysis[]> {
+    const [payees, transactions] = await Promise.all([
+      this.getPayees(budgetId),
+      this.getTransactions(budgetId),
+    ]);
+
+    // Map to store last transaction date for each payee
+    const payeeLastUsed = new Map<string, string>();
+
+    // Process transactions to find the last time each payee was used
+    transactions.forEach(transaction => {
+      if (transaction.deleted || !transaction.payee_id) return;
+
+      const transactionDate = transaction.date;
+      const payeeId = transaction.payee_id;
+
+      if (!payeeLastUsed.has(payeeId) || transactionDate > payeeLastUsed.get(payeeId)!) {
+        payeeLastUsed.set(payeeId, transactionDate);
+      }
+    });
+
+    // Current date for calculating "days since last used"
+    const currentDate = new Date();
+
+    // Build the analysis for each payee
+    const unusedPayeeAnalysis = payees
+      .filter(payee => !payee.deleted && !payee.transfer_account_id) // Exclude deleted payees and transfer accounts
+      .map(payee => {
+        const lastUsed = payeeLastUsed.get(payee.id);
+        let daysSinceLastUsed: number | undefined = undefined;
+        
+        if (lastUsed) {
+          const lastUsedDate = new Date(lastUsed);
+          const differenceInTime = currentDate.getTime() - lastUsedDate.getTime();
+          daysSinceLastUsed = Math.floor(differenceInTime / (1000 * 3600 * 24)); // Convert to days
+        }
+        
+        // A payee is considered unused if it has never been used or hasn't been used for more than the threshold
+        const isUnused = !lastUsed || (daysSinceLastUsed !== undefined && daysSinceLastUsed > dayThreshold);
+        
+        return {
+          id: payee.id,
+          name: payee.name,
+          lastUsed,
+          daysSinceLastUsed,
+          isUnused
+        };
+      });
+
+    // Sort by days since last used (descending) with never-used payees at the top
+    return unusedPayeeAnalysis.sort((a, b) => {
+      // Never used payees come first
+      if (!a.lastUsed && !b.lastUsed) return 0;
+      if (!a.lastUsed) return -1;
+      if (!b.lastUsed) return 1;
+      
+      // Then sort by days since last used
+      return (b.daysSinceLastUsed || 0) - (a.daysSinceLastUsed || 0);
+    });
   }
 
   public async analyzePayees(budgetId: string): Promise<PayeeAnalysis[]> {

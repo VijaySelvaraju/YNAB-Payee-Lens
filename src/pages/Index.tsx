@@ -1,13 +1,17 @@
 
+import { useState } from "react";
 import Layout from "@/components/layout/Layout";
 import ApiTokenForm from "@/components/auth/ApiTokenForm";
 import BudgetSelector from "@/components/budgets/BudgetSelector";
 import AnalysisDashboard from "@/components/analysis/AnalysisDashboard";
+import UnusedPayeesAnalysis from "@/components/analysis/UnusedPayeeAnalysis";
 import { useYNAB } from "@/contexts/YNABContext";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const { isAuthenticated, payeeAnalysis, reset } = useYNAB();
+  const [activeTab, setActiveTab] = useState<string>("payee-frequency");
 
   // Show the appropriate view based on the authentication state
   const renderContent = () => {
@@ -19,7 +23,7 @@ const Index = () => {
               YNAB Payee Analyzer
             </h1>
             <p className="mt-4 text-lg text-gray-600">
-              Analyze your YNAB payees by usage frequency and associated categories to understand your spending patterns.
+              Analyze your YNAB payees by usage frequency, associated categories, and identify unused payees.
             </p>
           </div>
           
@@ -31,6 +35,7 @@ const Index = () => {
               <li>Enter your YNAB API token (available in your <a href="https://app.youneedabudget.com/settings/developer" target="_blank" rel="noopener noreferrer" className="text-ynab-blue hover:underline">YNAB Developer Settings</a>)</li>
               <li>Select a budget to analyze</li>
               <li>View detailed payee analysis with frequency, categories, and amounts</li>
+              <li>Identify unused payees that you might want to hide in your budget</li>
               <li>Export results to CSV if needed</li>
             </ol>
             <p className="mt-4">
@@ -71,7 +76,19 @@ const Index = () => {
             Start Over
           </Button>
         </div>
-        <AnalysisDashboard />
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="payee-frequency">Payee Frequency</TabsTrigger>
+            <TabsTrigger value="unused-payees">Unused Payees</TabsTrigger>
+          </TabsList>
+          <TabsContent value="payee-frequency" className="space-y-4">
+            <AnalysisDashboard />
+          </TabsContent>
+          <TabsContent value="unused-payees" className="space-y-4">
+            <UnusedPayeesAnalysis />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   };

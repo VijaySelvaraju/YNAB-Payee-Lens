@@ -1,0 +1,170 @@
+
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useYNAB } from "@/contexts/YNABContext";
+import ynabService, { UnusedPayeeAnalysis } from "@/services/ynabService";
+import { format } from "date-fns";
+import { Download } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const UnusedPayeesAnalysis = () => {
+  const [unusedPayees, setUnusedPayees] = useState<UnusedPayeeAnalysis[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dayThreshold, setDayThreshold] = useState("90");
+  const [isLoading, setIsLoading] = useState(false);
+  const { selectedBudgetId, budgets } = useYNAB();
+  
+  // Get selected budget name
+  const selectedBudget = budgets.find(b => b.id === selectedBudgetId);
+  const budgetName = selectedBudget?.name || "Selected Budget";
+  
+  const handleAnalyzeUnusedPayees = async () => {
+    setIsLoading(true);
+    try {
+      const threshold = parseInt(dayThreshold, 10);
+      const results = await ynabService.findUnusedPayees(selectedBudgetId, threshold);
+      setUnusedPayees(results);
+    } catch (error) {
+      console.error("Error analyzing unused payees:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const filteredPayees = unusedPayees
+    .filter(payee => payee.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Never";
+    try {
+      return format(new Date(dateString), "MMM d, yyyy");
+    } catch (error) {
+      return dateString;
+    }
+  };
+  
+  const exportToCSV = () => {
+    const headers = ["Payee Name", "Last Used", "Days Since Last Used", "Status"];
+    
+    const csvRows = [headers.join(",")];
+    
+    unusedPayees.forEach(payee => {
+      const status = payee.isUnused ? "Unused" : "Active";
+      const row = [
+        `"${payee.name}"`,
+        formatDate(payee.lastUsed),
+        payee.daysSinceLastUsed || "N/A",
+        status
+      ];
+      
+      csvRows.push(row.join(","));
+    });
+    
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `ynab-unused-payees-${budgetName.replace(/\s+/g, '-').toLowerCase()}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Unused Payees Analysis</CardTitle>
+        <CardDescription>
+          Find payees that haven't been used recently in your budget
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="w-full sm:w-auto flex-1">
+              <label className="text-sm font-medium mb-1 block">Days Threshold</label>
+              <Select value={dayThreshold} onValueChange={setDayThreshold}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select threshold" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="60">60 days</SelectItem>
+                  <SelectItem value="90">90 days</SelectItem>
+                  <SelectItem value="180">180 days</SelectItem>
+                  <SelectItem value="365">365 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={handleAnalyzeUnusedPayees} 
+              disabled={isLoading}
+            >
+              {isLoading ? "Analyzing..." : "Find Unused Payees"}
+            </Button>
+          </div>
+          
+          {unusedPayees.length > 0 && (
+            <>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <Input
+                  placeholder="Search payees..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full md:w-64"
+                />
+                <Button 
+                  onClick={exportToCSV} 
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export to CSV
+                </Button>
+              </div>
+              
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Payee Name</TableHead>
+                      <TableHead>Last Used</TableHead>
+                      <TableHead>Days Since Last Used</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayees.map((payee) => (
+                      <TableRow key={payee.id}>
+                        <TableCell className="font-medium">{payee.name}</TableCell>
+                        <TableCell>{formatDate(payee.lastUsed)}</TableCell>
+                        <TableCell>{payee.daysSinceLastUsed || "N/A"}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${payee.isUnused ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                            {payee.isUnused ? "Unused" : "Active"}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                Found {unusedPayees.length} payees, {unusedPayees.filter(p => p.isUnused).length} unused
+              </div>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default UnusedPayeesAnalysis;
