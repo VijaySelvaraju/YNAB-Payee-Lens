@@ -15,9 +15,9 @@ const COLORS = ['#41B952', '#0091d9', '#f9c120', '#dd4b39', '#5F6A7A', '#8A2BE2'
 
 const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("de-DE", {
       style: "currency",
-      currency: "USD",
+      currency: "EUR",
     }).format(amount);
   };
 
@@ -50,11 +50,11 @@ const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-6 py-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
+              <Card className="border-ynab-blue/20">
+                <CardHeader className="pb-2 bg-muted/30 rounded-t-lg">
                   <CardTitle className="text-base">Transaction Summary</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-4">
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Transactions:</span>
@@ -80,11 +80,11 @@ const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
                 </CardContent>
               </Card>
               
-              <Card>
-                <CardHeader className="pb-2">
+              <Card className="border-ynab-blue/20">
+                <CardHeader className="pb-2 bg-muted/30 rounded-t-lg">
                   <CardTitle className="text-base">Category Distribution</CardTitle>
                 </CardHeader>
-                <CardContent className="h-[200px]">
+                <CardContent className="h-[200px] pt-4">
                   {payee.categoryBreakdown.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -117,18 +117,18 @@ const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
               </Card>
             </div>
             
-            <Card>
-              <CardHeader className="pb-2">
+            <Card className="border-ynab-blue/20">
+              <CardHeader className="pb-2 bg-muted/30 rounded-t-lg">
                 <CardTitle className="text-base">Category Breakdown</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 <div className="space-y-2">
                   {payee.categoryBreakdown.map((category) => (
                     <div key={category.categoryId} className="flex justify-between items-center py-1 border-b last:border-0">
                       <div>
                         <span className="font-medium">{category.categoryName}</span>
                         <div className="text-xs text-muted-foreground">
-                          {category.count} transactions
+                          {category.count} transaction{category.count !== 1 ? 's' : ''}
                         </div>
                       </div>
                       <div className="text-right">

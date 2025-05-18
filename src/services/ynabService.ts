@@ -1,4 +1,3 @@
-
 // Types for YNAB API responses
 export interface YNABBudget {
   id: string;
@@ -203,8 +202,15 @@ class YNABService {
           daysSinceLastUsed = Math.floor(differenceInTime / (1000 * 3600 * 24)); // Convert to days
         }
         
-        // A payee is considered unused if it has never been used or hasn't been used for more than the threshold
-        const isUnused = !lastUsed || (daysSinceLastUsed !== undefined && daysSinceLastUsed > dayThreshold);
+        // Special handling for "All time" filter (dayThreshold = -1)
+        let isUnused = false;
+        if (dayThreshold === -1) {
+          // For "All time", a payee is unused only if it has never been used
+          isUnused = !lastUsed;
+        } else {
+          // Otherwise, a payee is unused if it hasn't been used for more than the threshold
+          isUnused = !lastUsed || (daysSinceLastUsed !== undefined && daysSinceLastUsed > dayThreshold);
+        }
         
         return {
           id: payee.id,
@@ -215,16 +221,24 @@ class YNABService {
         };
       });
 
-    // Sort by days since last used (descending) with never-used payees at the top
-    return unusedPayeeAnalysis.sort((a, b) => {
-      // Never used payees come first
-      if (!a.lastUsed && !b.lastUsed) return 0;
-      if (!a.lastUsed) return -1;
-      if (!b.lastUsed) return 1;
-      
-      // Then sort by days since last used
-      return (b.daysSinceLastUsed || 0) - (a.daysSinceLastUsed || 0);
-    });
+    // Sort based on the filter type
+    if (dayThreshold === -1) {
+      // For "All time" filter, put never-used payees first, then sort by name
+      return unusedPayeeAnalysis
+        .filter(p => !p.lastUsed) // Only include never-used payees
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // For regular filters, sort by days since last used
+      return unusedPayeeAnalysis.sort((a, b) => {
+        // Never used payees come first
+        if (!a.lastUsed && !b.lastUsed) return a.name.localeCompare(b.name);
+        if (!a.lastUsed) return -1;
+        if (!b.lastUsed) return 1;
+        
+        // Then sort by days since last used
+        return (b.daysSinceLastUsed || 0) - (a.daysSinceLastUsed || 0);
+      });
+    }
   }
 
   public async analyzePayees(budgetId: string): Promise<PayeeAnalysis[]> {

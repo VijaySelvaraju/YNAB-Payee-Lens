@@ -20,9 +20,9 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("de-DE", {
       style: "currency",
-      currency: "USD",
+      currency: "EUR",
     }).format(amount);
   };
 
@@ -30,11 +30,11 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
   const topCategories = payee.categoryBreakdown.slice(0, 2);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col hover:border-ynab-blue transition-colors">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">{payee.name}</CardTitle>
         <CardDescription>
-          {payee.transactionCount} transactions
+          {payee.transactionCount} transaction{payee.transactionCount !== 1 ? 's' : ''}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 flex-grow">
@@ -52,8 +52,8 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
               <p className="text-muted-foreground text-xs mb-1">Top Categories:</p>
               {topCategories.map(category => (
                 <div key={category.categoryId} className="flex justify-between items-center text-xs">
-                  <span>{category.categoryName}</span>
-                  <span className="text-ynab-gray">{Math.round(category.percentage)}%</span>
+                  <span className="truncate mr-2">{category.categoryName}</span>
+                  <span className="text-ynab-gray whitespace-nowrap">{Math.round(category.percentage)}%</span>
                 </div>
               ))}
             </div>
@@ -75,7 +75,7 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
           onClick={() => onViewDetails(payee)} 
           variant="outline" 
           size="sm" 
-          className="w-full"
+          className="w-full hover:bg-ynab-blue hover:text-white transition-colors"
         >
           View Details
         </Button>
