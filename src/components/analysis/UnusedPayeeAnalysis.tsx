@@ -7,15 +7,18 @@ import { Button } from "@/components/ui/button";
 import { useYNAB } from "@/contexts/YNABContext";
 import ynabService, { UnusedPayeeAnalysis } from "@/services/ynabService";
 import { format } from "date-fns";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Filter } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as XLSX from 'xlsx';
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const UnusedPayeesAnalysis = () => {
   const [unusedPayees, setUnusedPayees] = useState<UnusedPayeeAnalysis[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dayThreshold, setDayThreshold] = useState("90");
   const [isLoading, setIsLoading] = useState(false);
+  const [hideTransfers, setHideTransfers] = useState(true);
   const { selectedBudgetId, budgets } = useYNAB();
   
   // Get selected budget name
@@ -41,8 +44,13 @@ const UnusedPayeesAnalysis = () => {
     }
   };
   
+  // Filter out transfer payees if hideTransfers is true
   const filteredPayees = unusedPayees
-    .filter(payee => payee.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter(payee => {
+      const matchesSearch = payee.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const isTransfer = payee.name.toLowerCase().startsWith("transfer : ");
+      return matchesSearch && (!hideTransfers || !isTransfer);
+    });
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Never";
@@ -53,38 +61,8 @@ const UnusedPayeesAnalysis = () => {
     }
   };
   
-  const exportToCSV = () => {
-    const headers = ["Payee Name", "Last Used", "Days Since Last Used", "Status"];
-    
-    const csvRows = [headers.join(",")];
-    
-    unusedPayees.forEach(payee => {
-      const status = payee.isUnused ? "Unused" : "Active";
-      const row = [
-        `"${payee.name}"`,
-        formatDate(payee.lastUsed),
-        payee.daysSinceLastUsed || "N/A",
-        status
-      ];
-      
-      csvRows.push(row.join(","));
-    });
-    
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `ynab-unused-payees-${budgetName.replace(/\s+/g, '-').toLowerCase()}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const exportToXLSX = () => {
-    const worksheetData = unusedPayees.map(payee => ({
+    const worksheetData = filteredPayees.map(payee => ({
       "Payee Name": payee.name,
       "Last Used": formatDate(payee.lastUsed),
       "Days Since Last Used": payee.daysSinceLastUsed || "N/A",
@@ -117,16 +95,16 @@ const UnusedPayeesAnalysis = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Unused Payees Analysis</CardTitle>
+        <CardTitle>Unused Payees Finder</CardTitle>
         <CardDescription>
-          Find payees that haven't been used recently in your budget
+          Identify payees that haven't been used recently to clean up your budget
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="w-full sm:w-auto flex-1">
-              <label className="text-sm font-medium mb-1 block">Time Threshold</label>
+              <label className="text-sm font-medium mb-1 block">Find payees unused for:</label>
               <Select value={dayThreshold} onValueChange={setDayThreshold}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select threshold" />
@@ -144,7 +122,7 @@ const UnusedPayeesAnalysis = () => {
             <Button 
               onClick={handleAnalyzeUnusedPayees} 
               disabled={isLoading}
-              className="whitespace-nowrap"
+              className="whitespace-nowrap bg-ynab-blue hover:bg-blue-600"
             >
               {isLoading ? "Analyzing..." : "Find Unused Payees"}
             </Button>
@@ -152,31 +130,31 @@ const UnusedPayeesAnalysis = () => {
           
           {unusedPayees.length > 0 && (
             <>
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <Input
-                  placeholder="Search payees..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full md:w-64"
-                />
-                <div className="flex gap-2 w-full md:w-auto">
-                  <Button 
-                    onClick={exportToCSV} 
-                    variant="outline"
-                    className="flex items-center gap-2 w-full md:w-auto"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                  </Button>
-                  <Button 
-                    onClick={exportToXLSX}
-                    variant="default"
-                    className="flex items-center gap-2 bg-ynab-green hover:bg-ynab-darkGreen w-full md:w-auto"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Export XLSX
-                  </Button>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-6">
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                  <Input
+                    placeholder="Search payees..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full md:w-64"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="hide-transfers-unused" 
+                      checked={hideTransfers}
+                      onCheckedChange={setHideTransfers}
+                    />
+                    <Label htmlFor="hide-transfers-unused">Hide Transfers</Label>
+                  </div>
                 </div>
+                <Button 
+                  onClick={exportToXLSX}
+                  variant="default"
+                  className="flex items-center gap-2 bg-ynab-green hover:bg-ynab-darkGreen w-full md:w-auto"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export XLSX
+                </Button>
               </div>
               
               <div className="border rounded-md overflow-hidden">
@@ -185,7 +163,7 @@ const UnusedPayeesAnalysis = () => {
                     <TableRow className="bg-muted/50">
                       <TableHead>Payee Name</TableHead>
                       <TableHead>Last Used</TableHead>
-                      <TableHead>Days Since Last Used</TableHead>
+                      <TableHead>Days Unused</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>

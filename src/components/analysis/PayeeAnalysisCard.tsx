@@ -28,13 +28,17 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
 
   // Get top 2 categories
   const topCategories = payee.categoryBreakdown.slice(0, 2);
+  
+  // Check if it's a transfer payee
+  const isTransferPayee = payee.name.toLowerCase().startsWith("transfer : ");
 
   return (
-    <Card className="h-full flex flex-col hover:border-ynab-blue transition-colors">
+    <Card className={`h-full flex flex-col hover:border-ynab-blue transition-colors ${isTransferPayee ? "border-blue-200 bg-blue-50" : ""}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{payee.name}</CardTitle>
+        <CardTitle className={`text-lg ${isTransferPayee ? "text-blue-700" : ""}`}>{payee.name}</CardTitle>
         <CardDescription>
           {payee.transactionCount} transaction{payee.transactionCount !== 1 ? 's' : ''}
+          {isTransferPayee && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Transfer</span>}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 flex-grow">

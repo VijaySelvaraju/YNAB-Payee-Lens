@@ -7,21 +7,31 @@ import PayeeAnalysisCard from "./PayeeAnalysisCard";
 import PayeeDetailsDialog from "./PayeeDetailsDialog";
 import { PayeeAnalysis } from "@/services/ynabService";
 import { Button } from "@/components/ui/button";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, Filter } from "lucide-react";
 import * as XLSX from 'xlsx';
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const PayeeAnalysisGrid = () => {
   const { payeeAnalysis, budgets, selectedBudgetId } = useYNAB();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("transactionCount");
   const [selectedPayee, setSelectedPayee] = useState<PayeeAnalysis | null>(null);
+  const [hideTransfers, setHideTransfers] = useState(true);
 
   // Get selected budget name for export filename
   const selectedBudget = budgets.find(b => b.id === selectedBudgetId);
   const budgetName = selectedBudget?.name || "Selected Budget";
 
+  // Filter payees based on search term and transfer filter
   const filteredPayees = payeeAnalysis.filter(
-    (payee) => payee.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (payee) => {
+      const matchesSearch = payee.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const isTransfer = payee.name.toLowerCase().startsWith("transfer : ");
+      
+      // Show if it matches search AND (show transfers is ON OR it's not a transfer)
+      return matchesSearch && (!hideTransfers || !isTransfer);
+    }
   );
 
   const sortedPayees = [...filteredPayees].sort((a, b) => {
@@ -94,7 +104,16 @@ const PayeeAnalysisGrid = () => {
             className="w-full"
           />
         </div>
-        <div className="flex gap-2 md:gap-4">
+        <div className="flex flex-wrap gap-2 md:gap-4 items-center">
+          <div className="flex items-center space-x-2">
+            <Switch 
+              id="hide-transfers" 
+              checked={hideTransfers}
+              onCheckedChange={setHideTransfers}
+            />
+            <Label htmlFor="hide-transfers" className="whitespace-nowrap">Hide Transfers</Label>
+          </div>
+          
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="Sort by" />
@@ -120,7 +139,7 @@ const PayeeAnalysisGrid = () => {
         </div>
       </div>
 
-      {sortedPayees.length > 0 ? (
+      {filteredPayees.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sortedPayees.map((payee) => (
             <PayeeAnalysisCard

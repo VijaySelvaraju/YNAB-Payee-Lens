@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const { isAuthenticated, payeeAnalysis, reset } = useYNAB();
-  const [activeTab, setActiveTab] = useState<string>("payee-frequency");
+  const [activeTab, setActiveTab] = useState<string>("unused-payees");
 
   // Show the appropriate view based on the authentication state
   const renderContent = () => {
@@ -20,10 +20,10 @@ const Index = () => {
         <div className="max-w-3xl mx-auto py-8 px-4">
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              YNAB Payee Analyzer
+              YNAB Payee Cleaner
             </h1>
             <p className="mt-4 text-lg text-gray-600">
-              Analyze your YNAB payees by usage frequency, associated categories, and identify unused payees.
+              Identify and clean up unused payees to simplify your YNAB budget
             </p>
           </div>
           
@@ -34,9 +34,9 @@ const Index = () => {
             <ol className="space-y-2 text-left list-decimal list-inside">
               <li>Enter your YNAB API token (available in your <a href="https://app.youneedabudget.com/settings/developer" target="_blank" rel="noopener noreferrer" className="text-ynab-blue hover:underline">YNAB Developer Settings</a>)</li>
               <li>Select a budget to analyze</li>
+              <li>Find unused payees that you can hide or delete in YNAB</li>
               <li>View detailed payee analysis with frequency, categories, and amounts</li>
-              <li>Identify unused payees that you might want to hide in your budget</li>
-              <li>Export results to CSV if needed</li>
+              <li>Export results to XLSX for reference</li>
             </ol>
             <p className="mt-4">
               All data processing happens in your browser. Your YNAB token and budget data are not stored on any server.
@@ -79,14 +79,14 @@ const Index = () => {
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="payee-frequency">Payee Frequency</TabsTrigger>
             <TabsTrigger value="unused-payees">Unused Payees</TabsTrigger>
+            <TabsTrigger value="payee-frequency">Payee Analysis</TabsTrigger>
           </TabsList>
-          <TabsContent value="payee-frequency" className="space-y-4">
-            <AnalysisDashboard />
-          </TabsContent>
           <TabsContent value="unused-payees" className="space-y-4">
             <UnusedPayeesAnalysis />
+          </TabsContent>
+          <TabsContent value="payee-frequency" className="space-y-4">
+            <AnalysisDashboard />
           </TabsContent>
         </Tabs>
       </div>
