@@ -1,5 +1,4 @@
 
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYNAB } from "@/contexts/YNABContext";
 import PayeeAnalysisGrid from "./PayeeAnalysisGrid";
@@ -12,15 +11,6 @@ const AnalysisDashboard = () => {
   // Get selected budget name
   const selectedBudget = budgets.find(b => b.id === selectedBudgetId);
   const budgetName = selectedBudget?.name || "Selected Budget";
-
-  // Prepare data for top payees chart
-  const topPayeesData = payeeAnalysis
-    .slice(0, 10)
-    .map(payee => ({
-      name: payee.name.length > 15 ? payee.name.substring(0, 15) + "..." : payee.name,
-      fullName: payee.name,
-      count: payee.transactionCount,
-    }));
 
   const exportToCSV = () => {
     // Prepare CSV content
@@ -87,50 +77,6 @@ const AnalysisDashboard = () => {
           Export to CSV
         </Button>
       </div>
-
-      {payeeAnalysis.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Top 10 Most Frequent Payees</CardTitle>
-            <CardDescription>
-              Payees with the highest number of transactions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={topPayeesData}
-                  layout="vertical"
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <XAxis type="number" />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={150}
-                    tickFormatter={(value) => value}
-                  />
-                  <Tooltip
-                    formatter={(value) => [`${value} transactions`, "Count"]}
-                    labelFormatter={(label, data) => data[0]?.payload?.fullName || label}
-                  />
-                  <Bar dataKey="count" fill="#0091d9">
-                    {topPayeesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#0091d9" : "#41B952"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <PayeeAnalysisGrid />
     </div>

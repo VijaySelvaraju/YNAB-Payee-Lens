@@ -5,6 +5,7 @@ import ApiTokenForm from "@/components/auth/ApiTokenForm";
 import BudgetSelector from "@/components/budgets/BudgetSelector";
 import AnalysisDashboard from "@/components/analysis/AnalysisDashboard";
 import UnusedPayeesAnalysis from "@/components/analysis/UnusedPayeeAnalysis";
+import PayeeGroupingSuggestions from "@/components/analysis/PayeeGroupingSuggestions";
 import { useYNAB } from "@/contexts/YNABContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,15 +79,19 @@ const Index = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="unused-payees">Unused Payees</TabsTrigger>
             <TabsTrigger value="payee-frequency">Payee Analysis</TabsTrigger>
+            <TabsTrigger value="payee-grouping">Payee Grouping</TabsTrigger>
           </TabsList>
           <TabsContent value="unused-payees" className="space-y-4">
             <UnusedPayeesAnalysis />
           </TabsContent>
           <TabsContent value="payee-frequency" className="space-y-4">
             <AnalysisDashboard />
+          </TabsContent>
+          <TabsContent value="payee-grouping" className="space-y-4">
+            <PayeeGroupingSuggestions />
           </TabsContent>
         </Tabs>
       </div>

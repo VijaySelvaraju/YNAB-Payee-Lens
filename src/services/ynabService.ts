@@ -103,6 +103,7 @@ export interface UnusedPayeeAnalysis {
   lastUsed?: string;
   daysSinceLastUsed?: number;
   isUnused: boolean;
+  transactionCount?: number;
 }
 
 // YNAB API Service
@@ -171,19 +172,24 @@ class YNABService {
       this.getTransactions(budgetId),
     ]);
 
-    // Map to store last transaction date for each payee
+    // Map to store last transaction date and count for each payee
     const payeeLastUsed = new Map<string, string>();
+    const payeeTransactionCount = new Map<string, number>();
 
-    // Process transactions to find the last time each payee was used
+    // Process transactions to find the last time each payee was used and count transactions
     transactions.forEach(transaction => {
       if (transaction.deleted || !transaction.payee_id) return;
 
       const transactionDate = transaction.date;
       const payeeId = transaction.payee_id;
 
+      // Update last used date
       if (!payeeLastUsed.has(payeeId) || transactionDate > payeeLastUsed.get(payeeId)!) {
         payeeLastUsed.set(payeeId, transactionDate);
       }
+
+      // Increment transaction count
+      payeeTransactionCount.set(payeeId, (payeeTransactionCount.get(payeeId) || 0) + 1);
     });
 
     // Current date for calculating "days since last used"
@@ -191,9 +197,10 @@ class YNABService {
 
     // Build the analysis for each payee
     const unusedPayeeAnalysis = payees
-      .filter(payee => !payee.deleted && !payee.transfer_account_id) // Exclude deleted payees and transfer accounts
+      .filter(payee => !payee.deleted) // Include all payees, not just unused ones
       .map(payee => {
         const lastUsed = payeeLastUsed.get(payee.id);
+        const transactionCount = payeeTransactionCount.get(payee.id) || 0;
         let daysSinceLastUsed: number | undefined = undefined;
         
         if (lastUsed) {
@@ -217,7 +224,8 @@ class YNABService {
           name: payee.name,
           lastUsed,
           daysSinceLastUsed,
-          isUnused
+          isUnused,
+          transactionCount
         };
       });
 

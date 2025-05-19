@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useYNAB } from "@/contexts/YNABContext";
 import ynabService, { UnusedPayeeAnalysis } from "@/services/ynabService";
 import { format } from "date-fns";
-import { FileSpreadsheet, Filter } from "lucide-react";
+import { FileSpreadsheet, Filter, ArrowDown, ArrowUp } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as XLSX from 'xlsx';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 const UnusedPayeesAnalysis = () => {
   const [unusedPayees, setUnusedPayees] = useState<UnusedPayeeAnalysis[]>([]);
@@ -19,6 +20,8 @@ const UnusedPayeesAnalysis = () => {
   const [dayThreshold, setDayThreshold] = useState("90");
   const [isLoading, setIsLoading] = useState(false);
   const [hideTransfers, setHideTransfers] = useState(true);
+  const [usageRange, setUsageRange] = useState<[number, number]>([0, 10]);
+  const [showFilters, setShowFilters] = useState(false);
   const { selectedBudgetId, budgets } = useYNAB();
   
   // Get selected budget name
@@ -44,12 +47,15 @@ const UnusedPayeesAnalysis = () => {
     }
   };
   
-  // Filter out transfer payees if hideTransfers is true
+  // Filter out transfer payees if hideTransfers is true and apply usage filter
   const filteredPayees = unusedPayees
     .filter(payee => {
       const matchesSearch = payee.name.toLowerCase().includes(searchTerm.toLowerCase());
       const isTransfer = payee.name.toLowerCase().startsWith("transfer : ");
-      return matchesSearch && (!hideTransfers || !isTransfer);
+      const usageCount = payee.transactionCount || 0;
+      const withinUsageRange = usageCount >= usageRange[0] && usageCount <= usageRange[1];
+      
+      return matchesSearch && (!hideTransfers || !isTransfer) && withinUsageRange;
     });
   
   const formatDate = (dateString?: string) => {
@@ -66,6 +72,7 @@ const UnusedPayeesAnalysis = () => {
       "Payee Name": payee.name,
       "Last Used": formatDate(payee.lastUsed),
       "Days Since Last Used": payee.daysSinceLastUsed || "N/A",
+      "Usage Count": payee.transactionCount || 0,
       "Status": payee.isUnused ? "Unused" : "Active"
     }));
     
@@ -79,14 +86,16 @@ const UnusedPayeesAnalysis = () => {
       A: 30, // Payee Name
       B: 15, // Last Used
       C: 25, // Days Since
-      D: 10  // Status
+      D: 10, // Usage Count
+      E: 10  // Status
     };
     
     worksheet["!cols"] = [
       { wch: maxWidths.A },
       { wch: maxWidths.B },
       { wch: maxWidths.C },
-      { wch: maxWidths.D }
+      { wch: maxWidths.D },
+      { wch: maxWidths.E }
     ];
     
     XLSX.writeFile(workbook, `ynab-unused-payees-${budgetName.replace(/\s+/g, '-').toLowerCase()}.xlsx`);
@@ -138,14 +147,14 @@ const UnusedPayeesAnalysis = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full md:w-64"
                   />
-                  <div className="flex items-center space-x-2">
-                    <Switch 
-                      id="hide-transfers-unused" 
-                      checked={hideTransfers}
-                      onCheckedChange={setHideTransfers}
-                    />
-                    <Label htmlFor="hide-transfers-unused">Hide Transfers</Label>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={showFilters ? "bg-muted" : ""}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
                 </div>
                 <Button 
                   onClick={exportToXLSX}
@@ -157,6 +166,42 @@ const UnusedPayeesAnalysis = () => {
                 </Button>
               </div>
               
+              {showFilters && (
+                <div className="p-4 border rounded-md bg-muted/30 space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="hide-transfers-unused" 
+                      checked={hideTransfers}
+                      onCheckedChange={setHideTransfers}
+                    />
+                    <Label htmlFor="hide-transfers-unused">Hide Transfers</Label>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label>Usage count range:</Label>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="flex items-center gap-1">
+                          <ArrowDown className="h-3 w-3" /> {usageRange[0]}
+                        </span>
+                        <span>to</span>
+                        <span className="flex items-center gap-1">
+                          <ArrowUp className="h-3 w-3" /> {usageRange[1]}
+                        </span>
+                      </div>
+                    </div>
+                    <Slider
+                      value={usageRange}
+                      min={0}
+                      max={50}
+                      step={1}
+                      onValueChange={(value: [number, number]) => setUsageRange(value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="border rounded-md overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -164,6 +209,7 @@ const UnusedPayeesAnalysis = () => {
                       <TableHead>Payee Name</TableHead>
                       <TableHead>Last Used</TableHead>
                       <TableHead>Days Unused</TableHead>
+                      <TableHead>Usage Count</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -174,6 +220,7 @@ const UnusedPayeesAnalysis = () => {
                           <TableCell className="font-medium">{payee.name}</TableCell>
                           <TableCell>{formatDate(payee.lastUsed)}</TableCell>
                           <TableCell>{payee.daysSinceLastUsed || "N/A"}</TableCell>
+                          <TableCell>{payee.transactionCount || 0}</TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs ${payee.isUnused ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
                               {payee.isUnused ? "Unused" : "Active"}
@@ -183,7 +230,7 @@ const UnusedPayeesAnalysis = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                           No results found. Try adjusting your search or filters.
                         </TableCell>
                       </TableRow>
