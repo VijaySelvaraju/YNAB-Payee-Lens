@@ -31,7 +31,12 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     // Clean the token by removing any whitespace and quotes
     const cleanToken = token.trim().replace(/^["']|["']$/g, "");
     
-    // Store in state and service without additional validation here
+    // Check if token looks like a URL or other non-token format
+    if (cleanToken.includes("http") || cleanToken.length < 10) {
+      toast.error("The API token format appears invalid. Please check your YNAB token.");
+      return;
+    }
+
     setApiTokenState(cleanToken);
     ynabService.setApiToken(cleanToken);
   };
@@ -44,8 +49,8 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       // Validate token first
-      if (!apiToken) {
-        toast.error("Please enter an API token");
+      if (!apiToken || apiToken.trim().length < 10) {
+        toast.error("Invalid API token. Please provide a valid YNAB API token.");
         setIsAuthenticated(false);
         return [];
       }

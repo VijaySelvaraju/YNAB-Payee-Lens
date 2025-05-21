@@ -20,7 +20,7 @@ const UnusedPayeesAnalysis = () => {
   const [dayThreshold, setDayThreshold] = useState("90");
   const [isLoading, setIsLoading] = useState(false);
   const [hideTransfers, setHideTransfers] = useState(true);
-  const [usageRange, setUsageRange] = useState<[number, number]>([0, 3]);
+  const [usageRange, setUsageRange] = useState<[number, number]>([0, 10]);
   const [showFilters, setShowFilters] = useState(false);
   const { selectedBudgetId, budgets } = useYNAB();
   
@@ -193,7 +193,7 @@ const UnusedPayeesAnalysis = () => {
                     <Slider
                       value={usageRange}
                       min={0}
-                      max={10}
+                      max={50}
                       step={1}
                       onValueChange={(value: [number, number]) => setUsageRange(value)}
                       className="w-full"

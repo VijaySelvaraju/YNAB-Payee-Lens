@@ -14,16 +14,14 @@ const ApiTokenForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token.trim()) {
-      toast.error("Please enter your YNAB API token");
+      toast.error("Please enter a valid API token");
       return;
     }
 
     setIsLoading(true);
     try {
-      // Set the token first, without validation
       setApiToken(token);
       await fetchBudgets();
-      // Success is handled in the context
     } catch (error) {
       // Error is handled in context
     } finally {

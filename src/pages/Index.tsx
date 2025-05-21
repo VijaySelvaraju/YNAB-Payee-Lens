@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import Layout from "@/components/layout/Layout";
+import ApiTokenForm from "@/components/auth/ApiTokenForm";
 import BudgetSelector from "@/components/budgets/BudgetSelector";
 import AnalysisDashboard from "@/components/analysis/AnalysisDashboard";
 import UnusedPayeesAnalysis from "@/components/analysis/UnusedPayeeAnalysis";
@@ -8,7 +9,6 @@ import PayeeGroupingSuggestions from "@/components/analysis/PayeeGroupingSuggest
 import { useYNAB } from "@/contexts/YNABContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LandingPage from "@/components/landing/LandingPage";
 
 const Index = () => {
   const { isAuthenticated, payeeAnalysis, reset } = useYNAB();
@@ -18,8 +18,31 @@ const Index = () => {
   const renderContent = () => {
     if (!isAuthenticated) {
       return (
-        <div className="max-w-6xl mx-auto py-8 px-4">
-          <LandingPage />
+        <div className="max-w-3xl mx-auto py-8 px-4">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              YNAB Payee Cleaner
+            </h1>
+            <p className="mt-4 text-lg text-gray-600">
+              Identify and clean up unused payees to simplify your YNAB budget
+            </p>
+          </div>
+          
+          <ApiTokenForm />
+          
+          <div className="mt-8 text-sm text-muted-foreground text-center">
+            <h3 className="font-medium text-base mb-2">How It Works</h3>
+            <ol className="space-y-2 text-left list-decimal list-inside">
+              <li>Enter your YNAB API token (available in your <a href="https://app.youneedabudget.com/settings/developer" target="_blank" rel="noopener noreferrer" className="text-ynab-blue hover:underline">YNAB Developer Settings</a>)</li>
+              <li>Select a budget to analyze</li>
+              <li>Find unused payees that you can hide or delete in YNAB</li>
+              <li>View detailed payee analysis with frequency, categories, and amounts</li>
+              <li>Export results to XLSX for reference</li>
+            </ol>
+            <p className="mt-4">
+              All data processing happens in your browser. Your YNAB token and budget data are not stored on any server.
+            </p>
+          </div>
         </div>
       );
     } 
