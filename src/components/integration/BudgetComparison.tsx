@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYNAB } from "@/contexts/YNABContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,7 +62,7 @@ const BudgetComparison = () => {
   };
   
   // Clear comparison data when changing budget or tab
-  React.useEffect(() => {
+  useEffect(() => {
     setComparisonData([]);
   }, [compareBudgetId, activeTab]);
   

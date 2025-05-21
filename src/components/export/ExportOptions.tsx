@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,10 +13,8 @@ import "jspdf-autotable";
 import { format } from "date-fns";
 
 // Add autotable to jsPDF
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDFWithAutoTable;
 }
 
 const ExportOptions = () => {
@@ -126,7 +123,7 @@ const ExportOptions = () => {
     const data = prepareExportData();
     
     // Create PDF document
-    const doc = new jsPDF();
+    const doc = new jsPDF() as jsPDFWithAutoTable;
     
     // Add title
     doc.setFontSize(16);
