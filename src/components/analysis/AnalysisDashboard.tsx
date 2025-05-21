@@ -4,8 +4,6 @@ import { useYNAB } from "@/contexts/YNABContext";
 import PayeeAnalysisGrid from "./PayeeAnalysisGrid";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import TimeBasedAnalysis from "./TimeBasedAnalysis";
-import CategoryCorrelation from "./CategoryCorrelation";
 
 const AnalysisDashboard = () => {
   const { payeeAnalysis, budgets, selectedBudgetId } = useYNAB();
@@ -80,11 +78,6 @@ const AnalysisDashboard = () => {
         </Button>
       </div>
 
-      {/* New enhanced analysis components */}
-      <TimeBasedAnalysis />
-      <CategoryCorrelation />
-
-      {/* Original payee analysis grid */}
       <PayeeAnalysisGrid />
     </div>
   );

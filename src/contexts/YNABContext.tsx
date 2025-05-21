@@ -27,54 +27,17 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const [budgets, setBudgets] = useState<YNABBudget[]>([]);
   const [payeeAnalysis, setPayeeAnalysis] = useState<PayeeAnalysis[]>([]);
 
-  // Use localStorage for persisting authentication
-  React.useEffect(() => {
-    const storedToken = localStorage.getItem("ynab-api-token");
-    const storedBudgetId = localStorage.getItem("ynab-selected-budget-id");
-    
-    if (storedToken) {
-      setApiTokenState(storedToken);
-      ynabService.setApiToken(storedToken);
-      
-      // Auto-fetch budgets if we have a token
-      fetchBudgets().then(() => {
-        if (storedBudgetId) {
-          setSelectedBudgetIdState(storedBudgetId);
-        }
-      }).catch(error => {
-        console.error("Error auto-fetching budgets:", error);
-        // If auto-fetch fails, reset authentication
-        localStorage.removeItem("ynab-api-token");
-        localStorage.removeItem("ynab-selected-budget-id");
-      });
-    }
-  }, []);
-
   const setApiToken = (token: string) => {
     // Clean the token by removing any whitespace and quotes
     const cleanToken = token.trim().replace(/^["']|["']$/g, "");
     
-    // Store in state and service
+    // Store in state and service without additional validation here
     setApiTokenState(cleanToken);
     ynabService.setApiToken(cleanToken);
-    
-    // Save to localStorage for persistence
-    if (cleanToken) {
-      localStorage.setItem("ynab-api-token", cleanToken);
-    } else {
-      localStorage.removeItem("ynab-api-token");
-    }
   };
 
   const setSelectedBudgetId = (budgetId: string) => {
     setSelectedBudgetIdState(budgetId);
-    
-    // Save to localStorage for persistence
-    if (budgetId) {
-      localStorage.setItem("ynab-selected-budget-id", budgetId);
-    } else {
-      localStorage.removeItem("ynab-selected-budget-id");
-    }
   };
 
   const fetchBudgets = async () => {
@@ -93,25 +56,9 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(true);
       toast.success("Successfully connected to YNAB");
       return budgetsList;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching budgets:", error);
-      
-      // More informative error messages
-      let errorMessage = "Failed to connect to YNAB.";
-      
-      if (error.message?.includes("401")) {
-        errorMessage += " Invalid API token, please check and try again.";
-      } else if (error.message?.includes("403")) {
-        errorMessage += " Access forbidden, please check your permissions.";
-      } else if (error.message?.includes("429")) {
-        errorMessage += " Too many requests, please try again later.";
-      } else if (error.message?.includes("500")) {
-        errorMessage += " YNAB server error, please try again later.";
-      } else if (error.message?.includes("Network")) {
-        errorMessage += " Network error, please check your internet connection.";
-      }
-      
-      toast.error(errorMessage);
+      toast.error("Failed to connect to YNAB. Please check your API token.");
       setIsAuthenticated(false);
       throw error;
     } finally {
@@ -131,20 +78,9 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
       setPayeeAnalysis(analysis);
       toast.success(`Analysis complete: Found ${analysis.length} payees`);
       return analysis;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error analyzing payees:", error);
-      
-      let errorMessage = "Failed to analyze payees.";
-      
-      if (error.message?.includes("401")) {
-        errorMessage += " Your session may have expired, please reconnect.";
-        // Auto-reset on authentication failure
-        reset();
-      } else {
-        errorMessage += " Please try again.";
-      }
-      
-      toast.error(errorMessage);
+      toast.error("Failed to analyze payees. Please try again.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -158,10 +94,6 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     setBudgets([]);
     setPayeeAnalysis([]);
     ynabService.setApiToken("");
-    
-    // Clear localStorage
-    localStorage.removeItem("ynab-api-token");
-    localStorage.removeItem("ynab-selected-budget-id");
   };
 
   return (

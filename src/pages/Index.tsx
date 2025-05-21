@@ -9,10 +9,6 @@ import { useYNAB } from "@/contexts/YNABContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LandingPage from "@/components/landing/LandingPage";
-import CustomDateRangeSelector from "@/components/settings/CustomDateRangeSelector";
-import BudgetComparison from "@/components/integration/BudgetComparison";
-import ExportOptions from "@/components/export/ExportOptions";
-import FeedbackSystem from "@/components/feedback/FeedbackSystem";
 
 const Index = () => {
   const { isAuthenticated, payeeAnalysis, reset } = useYNAB();
@@ -60,36 +56,19 @@ const Index = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="unused-payees">Unused Payees</TabsTrigger>
             <TabsTrigger value="payee-frequency">Payee Analysis</TabsTrigger>
             <TabsTrigger value="payee-grouping">Payee Grouping</TabsTrigger>
-            <TabsTrigger value="budget-tools">Budget Tools</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
-          
           <TabsContent value="unused-payees" className="space-y-4">
             <UnusedPayeesAnalysis />
           </TabsContent>
-          
           <TabsContent value="payee-frequency" className="space-y-4">
             <AnalysisDashboard />
           </TabsContent>
-          
           <TabsContent value="payee-grouping" className="space-y-4">
             <PayeeGroupingSuggestions />
-          </TabsContent>
-          
-          {/* New Budget Tools Tab */}
-          <TabsContent value="budget-tools" className="space-y-6">
-            <BudgetComparison />
-            <ExportOptions />
-          </TabsContent>
-          
-          {/* New Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <CustomDateRangeSelector />
-            <FeedbackSystem />
           </TabsContent>
         </Tabs>
       </div>
