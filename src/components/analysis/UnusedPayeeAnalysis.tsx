@@ -22,6 +22,7 @@ const UnusedPayeesAnalysis = () => {
   const [hideTransfers, setHideTransfers] = useState(true);
   const [usageRange, setUsageRange] = useState<[number, number]>([0, 10]);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState("daysUnused");
   const { selectedBudgetId, budgets } = useYNAB();
   
   // Get selected budget name
@@ -54,8 +55,27 @@ const UnusedPayeesAnalysis = () => {
       const isTransfer = payee.name.toLowerCase().startsWith("transfer : ");
       const usageCount = payee.transactionCount || 0;
       const withinUsageRange = usageCount >= usageRange[0] && usageCount <= usageRange[1];
-      
+
       return matchesSearch && (!hideTransfers || !isTransfer) && withinUsageRange;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "lastUsed":
+          if (!a.lastUsed && !b.lastUsed) return 0;
+          if (!a.lastUsed) return -1;
+          if (!b.lastUsed) return 1;
+          return a.lastUsed.localeCompare(b.lastUsed);
+        case "usageCount":
+          return (a.transactionCount || 0) - (b.transactionCount || 0);
+        case "daysUnused":
+        default:
+          if (!a.lastUsed && !b.lastUsed) return a.name.localeCompare(b.name);
+          if (!a.lastUsed) return -1;
+          if (!b.lastUsed) return 1;
+          return (b.daysSinceLastUsed || 0) - (a.daysSinceLastUsed || 0);
+      }
     });
   
   const formatDate = (dateString?: string) => {
@@ -140,13 +160,24 @@ const UnusedPayeesAnalysis = () => {
           {unusedPayees.length > 0 && (
             <>
               <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-6">
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
                   <Input
                     placeholder="Search payees..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full md:w-64"
+                    className="w-full md:w-48"
                   />
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-full md:w-44">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daysUnused">Days Unused</SelectItem>
+                      <SelectItem value="name">Name A→Z</SelectItem>
+                      <SelectItem value="lastUsed">Last Used (oldest)</SelectItem>
+                      <SelectItem value="usageCount">Usage Count</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="icon"

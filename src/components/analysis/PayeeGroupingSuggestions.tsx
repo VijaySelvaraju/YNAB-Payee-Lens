@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useYNAB } from "@/contexts/YNABContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileSpreadsheet } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { PayeeAnalysis } from "@/services/ynabService";
+import { formatCurrency } from "@/lib/utils";
 
 interface PayeeGroup {
   id: string;
@@ -18,11 +20,12 @@ interface PayeeGroup {
 }
 
 const PayeeGroupingSuggestions = () => {
-  const { payeeAnalysis, selectedBudgetId, budgets } = useYNAB();
+  const { payeeAnalysis, selectedBudgetId, budgets, currencyFormat } = useYNAB();
   const [payeeGroups, setPayeeGroups] = useState<PayeeGroup[]>([]);
   const [threshold, setThreshold] = useState(70);
   const [isCalculating, setIsCalculating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("totalAmount");
 
   // Get selected budget name
   const selectedBudget = budgets.find(b => b.id === selectedBudgetId);
@@ -122,11 +125,27 @@ const PayeeGroupingSuggestions = () => {
     }, 100); // Add a small delay to allow UI to update
   };
 
-  // Filter payee groups based on search term
-  const filteredGroups = payeeGroups.filter(group =>
-    group.suggestedName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.payees.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter and sort payee groups
+  const filteredGroups = payeeGroups
+    .filter(group =>
+      group.suggestedName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.payees.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "groupSize":
+          return b.payees.length - a.payees.length;
+        case "name":
+          return a.suggestedName.localeCompare(b.suggestedName);
+        case "similarity":
+          return b.similarity - a.similarity;
+        case "totalAmount":
+        default:
+          const aTotal = a.payees.reduce((sum, p) => sum + p.totalAmount, 0);
+          const bTotal = b.payees.reduce((sum, p) => sum + p.totalAmount, 0);
+          return bTotal - aTotal;
+      }
+    });
 
   // Export to XLSX
   const exportToXLSX = () => {
@@ -227,13 +246,24 @@ const PayeeGroupingSuggestions = () => {
         
         {payeeGroups.length > 0 && (
           <>
-            <div className="pt-4">
+            <div className="pt-4 flex flex-col sm:flex-row gap-2">
               <Input
                 placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full sm:w-64"
               />
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="totalAmount">Total Amount</SelectItem>
+                  <SelectItem value="groupSize">Group Size</SelectItem>
+                  <SelectItem value="name">Alphabetical</SelectItem>
+                  <SelectItem value="similarity">Similarity %</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             {filteredGroups.length > 0 ? (
@@ -264,10 +294,7 @@ const PayeeGroupingSuggestions = () => {
                             <TableCell>{payee.name}</TableCell>
                             <TableCell>{payee.transactionCount}</TableCell>
                             <TableCell>
-                              {new Intl.NumberFormat("de-DE", {
-                                style: "currency",
-                                currency: "EUR",
-                              }).format(payee.totalAmount)}
+                              {formatCurrency(payee.totalAmount, currencyFormat)}
                             </TableCell>
                           </TableRow>
                         ))}

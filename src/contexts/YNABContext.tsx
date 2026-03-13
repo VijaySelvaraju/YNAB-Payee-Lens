@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import ynabService, { YNABBudget, PayeeAnalysis } from "@/services/ynabService";
+import { CurrencyFormat } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface YNABContextType {
@@ -10,6 +11,7 @@ interface YNABContextType {
   selectedBudgetId: string;
   budgets: YNABBudget[];
   payeeAnalysis: PayeeAnalysis[];
+  currencyFormat: CurrencyFormat | null;
   setApiToken: (token: string) => void;
   setSelectedBudgetId: (budgetId: string) => void;
   fetchBudgets: () => Promise<YNABBudget[]>;
@@ -26,6 +28,9 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const [selectedBudgetId, setSelectedBudgetIdState] = useState("");
   const [budgets, setBudgets] = useState<YNABBudget[]>([]);
   const [payeeAnalysis, setPayeeAnalysis] = useState<PayeeAnalysis[]>([]);
+
+  const currencyFormat: CurrencyFormat | null =
+    budgets.find((b) => b.id === selectedBudgetId)?.currency_format ?? null;
 
   const setApiToken = (token: string) => {
     // Clean the token by removing any whitespace and quotes
@@ -48,14 +53,16 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const fetchBudgets = async () => {
     setIsLoading(true);
     try {
-      // Validate token first
-      if (!apiToken || apiToken.trim().length < 10) {
+      // Read from ynabService (synchronously updated) rather than apiToken state,
+      // which may not have flushed yet when called immediately after setApiToken().
+      const effectiveToken = ynabService.getApiToken();
+      if (!effectiveToken || effectiveToken.trim().length < 10) {
         toast.error("Invalid API token. Please provide a valid YNAB API token.");
         setIsAuthenticated(false);
         return [];
       }
-      
-      console.log("Fetching budgets with token (first 4 chars):", apiToken.substring(0, 4) + "****");
+
+      console.log("Fetching budgets with token (first 4 chars):", effectiveToken.substring(0, 4) + "****");
       const budgetsList = await ynabService.getBudgets();
       setBudgets(budgetsList);
       setIsAuthenticated(true);
@@ -110,6 +117,7 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
         selectedBudgetId,
         budgets,
         payeeAnalysis,
+        currencyFormat,
         setApiToken,
         setSelectedBudgetId,
         fetchBudgets,

@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { PayeeAnalysis } from "@/services/ynabService";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { useYNAB } from "@/contexts/YNABContext";
 
 interface PayeeAnalysisCardProps {
   payee: PayeeAnalysis;
@@ -10,6 +12,8 @@ interface PayeeAnalysisCardProps {
 }
 
 const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => {
+  const { currencyFormat } = useYNAB();
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     try {
@@ -17,13 +21,6 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
     } catch (error) {
       return dateString;
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
   };
 
   // Get top 2 categories
@@ -45,11 +42,11 @@ const PayeeAnalysisCard = ({ payee, onViewDetails }: PayeeAnalysisCardProps) => 
         <div className="text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total:</span>
-            <span className="font-medium">{formatCurrency(payee.totalAmount)}</span>
+            <span className="font-medium">{formatCurrency(payee.totalAmount, currencyFormat)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Average:</span>
-            <span className="font-medium">{formatCurrency(payee.averageAmount)}</span>
+            <span className="font-medium">{formatCurrency(payee.averageAmount, currencyFormat)}</span>
           </div>
           {topCategories.length > 0 && (
             <div className="mt-3">

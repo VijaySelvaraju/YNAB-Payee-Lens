@@ -5,6 +5,8 @@ import { PayeeAnalysis } from "@/services/ynabService";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { useYNAB } from "@/contexts/YNABContext";
 
 interface PayeeDetailsDialogProps {
   payee: PayeeAnalysis;
@@ -14,12 +16,7 @@ interface PayeeDetailsDialogProps {
 const COLORS = ['#41B952', '#0091d9', '#f9c120', '#dd4b39', '#5F6A7A', '#8A2BE2', '#FF6347', '#20B2AA', '#9932CC'];
 
 const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
-  };
+  const { currencyFormat } = useYNAB();
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -62,11 +59,11 @@ const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Spent:</span>
-                      <span className="font-medium">{formatCurrency(payee.totalAmount)}</span>
+                      <span className="font-medium">{formatCurrency(payee.totalAmount, currencyFormat)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Average Transaction:</span>
-                      <span className="font-medium">{formatCurrency(payee.averageAmount)}</span>
+                      <span className="font-medium">{formatCurrency(payee.averageAmount, currencyFormat)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">First Transaction:</span>
@@ -132,7 +129,7 @@ const PayeeDetailsDialog = ({ payee, onClose }: PayeeDetailsDialogProps) => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-medium">{formatCurrency(category.total)}</span>
+                        <span className="font-medium">{formatCurrency(category.total, currencyFormat)}</span>
                         <div className="text-xs text-muted-foreground">
                           {category.percentage.toFixed(1)}% of transactions
                         </div>

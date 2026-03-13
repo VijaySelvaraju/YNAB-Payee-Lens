@@ -11,9 +11,10 @@ import { Download, FileSpreadsheet, Filter } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { formatCurrency } from "@/lib/utils";
 
 const PayeeAnalysisGrid = () => {
-  const { payeeAnalysis, budgets, selectedBudgetId } = useYNAB();
+  const { payeeAnalysis, budgets, selectedBudgetId, currencyFormat } = useYNAB();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("transactionCount");
   const [selectedPayee, setSelectedPayee] = useState<PayeeAnalysis | null>(null);
@@ -54,12 +55,6 @@ const PayeeAnalysisGrid = () => {
   });
 
   const exportToXLSX = () => {
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat("de-DE", {
-        style: "currency",
-        currency: "EUR",
-      }).format(amount);
-    };
 
     const worksheetData = payeeAnalysis.map(payee => {
       const topCategory = payee.categoryBreakdown[0]?.categoryName || "None";
@@ -67,8 +62,8 @@ const PayeeAnalysisGrid = () => {
       return {
         "Payee": payee.name,
         "Transactions": payee.transactionCount,
-        "Total Amount": formatCurrency(payee.totalAmount),
-        "Average Amount": formatCurrency(payee.averageAmount),
+        "Total Amount": formatCurrency(payee.totalAmount, currencyFormat),
+        "Average Amount": formatCurrency(payee.averageAmount, currencyFormat),
         "Primary Category": topCategory,
         "First Used": payee.firstTransaction ? new Date(payee.firstTransaction) : "N/A",
         "Last Used": payee.lastTransaction ? new Date(payee.lastTransaction) : "N/A"
