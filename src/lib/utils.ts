@@ -16,7 +16,8 @@ export interface CurrencyFormat {
 export function formatCurrency(amount: number, fmt: CurrencyFormat | null): string {
   if (!fmt) return amount.toFixed(2);
 
-  const fixed = amount.toFixed(fmt.decimal_digits);
+  const isNegative = amount < 0;
+  const fixed = Math.abs(amount).toFixed(fmt.decimal_digits);
   const [intPart, decPart] = fixed.split(".");
 
   const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, fmt.group_separator);
@@ -25,7 +26,9 @@ export function formatCurrency(amount: number, fmt: CurrencyFormat | null): stri
       ? `${grouped}${fmt.decimal_separator}${decPart}`
       : grouped;
 
-  return fmt.symbol_first
+  const formatted = fmt.symbol_first
     ? `${fmt.currency_symbol}${numStr}`
     : `${numStr} ${fmt.currency_symbol}`;
+
+  return isNegative ? `-${formatted}` : formatted;
 }

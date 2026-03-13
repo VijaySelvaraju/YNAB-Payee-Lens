@@ -76,6 +76,8 @@ const RecurringPayees = () => {
           if (!a.nextExpected) return 1;
           if (!b.nextExpected) return -1;
           return a.nextExpected.localeCompare(b.nextExpected);
+        case "confidence":
+          return b.confidence - a.confidence;
         case "avgAmount":
         default:
           return b.avgAmount - a.avgAmount;
@@ -91,13 +93,14 @@ const RecurringPayees = () => {
       "Next Expected": formatDate(p.nextExpected),
       "Confidence %": p.confidence,
       Transactions: p.transactionCount,
+      Accounts: p.accounts.join(", "),
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     ws["!cols"] = [
       { wch: 30 }, { wch: 14 }, { wch: 14 },
-      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Recurring Payees");
     XLSX.writeFile(wb, `ynab-recurring-${budgetName.replace(/\s+/g, "-").toLowerCase()}.xlsx`);
@@ -157,6 +160,7 @@ const RecurringPayees = () => {
                     <SelectItem value="avgAmount">Avg Amount</SelectItem>
                     <SelectItem value="name">Name A→Z</SelectItem>
                     <SelectItem value="nextExpected">Next Expected</SelectItem>
+                    <SelectItem value="confidence">Confidence</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex items-center space-x-2">
@@ -189,6 +193,7 @@ const RecurringPayees = () => {
                     <TableHead>Last Charged</TableHead>
                     <TableHead>Next Expected</TableHead>
                     <TableHead>Confidence</TableHead>
+                    <TableHead>Accounts</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -209,11 +214,14 @@ const RecurringPayees = () => {
                         <TableCell>
                           <span className="text-sm text-muted-foreground">{p.confidence}%</span>
                         </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {p.accounts.join(", ") || "—"}
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                         No results found. Try adjusting your filters.
                       </TableCell>
                     </TableRow>

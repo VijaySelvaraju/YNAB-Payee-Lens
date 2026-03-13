@@ -110,6 +110,8 @@ export interface UnusedPayeeAnalysis {
 class YNABService {
   private apiToken: string = '';
   private baseUrl = 'https://api.youneedabudget.com/v1';
+  private _payeesCache = new Map<string, YNABPayee[]>();
+  private _transactionsCache = new Map<string, YNABTransaction[]>();
 
   public setApiToken(token: string): void {
     this.apiToken = token;
@@ -151,12 +153,16 @@ class YNABService {
   }
 
   public async getPayees(budgetId: string): Promise<YNABPayee[]> {
+    if (this._payeesCache.has(budgetId)) return this._payeesCache.get(budgetId)!;
     const data = await this.fetchFromAPI(`/budgets/${budgetId}/payees`);
+    this._payeesCache.set(budgetId, data.payees);
     return data.payees;
   }
 
   public async getTransactions(budgetId: string): Promise<YNABTransaction[]> {
+    if (this._transactionsCache.has(budgetId)) return this._transactionsCache.get(budgetId)!;
     const data = await this.fetchFromAPI(`/budgets/${budgetId}/transactions`);
+    this._transactionsCache.set(budgetId, data.transactions);
     return data.transactions;
   }
 
@@ -356,12 +362,12 @@ class YNABService {
       this.getTransactions(budgetId),
     ]);
 
-    // Group transaction dates+amounts by payee
-    const payeeTxns = new Map<string, { date: string; amount: number }[]>();
+    // Group transaction dates+amounts+accounts by payee
+    const payeeTxns = new Map<string, { date: string; amount: number; accountName: string }[]>();
     transactions.forEach((t) => {
       if (t.deleted || !t.payee_id) return;
       const entry = payeeTxns.get(t.payee_id) ?? [];
-      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000) });
+      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000), accountName: t.account_name });
       payeeTxns.set(t.payee_id, entry);
     });
 
@@ -417,6 +423,7 @@ class YNABService {
       const nextDate = new Date(
         new Date(lastTxn.date).getTime() + bestPeriod.days * 86_400_000
       );
+      const accounts = [...new Set(txns.map((t) => t.accountName).filter(Boolean))];
 
       results.push({
         id: payee.id,
@@ -427,6 +434,7 @@ class YNABService {
         lastCharged: lastTxn.date,
         nextExpected: nextDate.toISOString().split("T")[0],
         transactionCount: txns.length,
+        accounts,
       });
     }
 
@@ -445,6 +453,7 @@ export interface RecurringPayee {
   lastCharged?: string;
   nextExpected?: string;
   transactionCount: number;
+  accounts: string[];
 }
 
 export const ynabService = new YNABService();
