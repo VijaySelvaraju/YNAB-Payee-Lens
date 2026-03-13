@@ -349,6 +349,102 @@ class YNABService {
 
     return result;
   }
+
+  public async detectRecurringPayees(budgetId: string): Promise<RecurringPayee[]> {
+    const [payees, transactions] = await Promise.all([
+      this.getPayees(budgetId),
+      this.getTransactions(budgetId),
+    ]);
+
+    // Group transaction dates+amounts by payee
+    const payeeTxns = new Map<string, { date: string; amount: number }[]>();
+    transactions.forEach((t) => {
+      if (t.deleted || !t.payee_id) return;
+      const entry = payeeTxns.get(t.payee_id) ?? [];
+      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000) });
+      payeeTxns.set(t.payee_id, entry);
+    });
+
+    const PERIODS: { name: RecurringFrequency; days: number }[] = [
+      { name: "weekly", days: 7 },
+      { name: "fortnightly", days: 14 },
+      { name: "monthly", days: 30 },
+      { name: "quarterly", days: 91 },
+      { name: "annual", days: 365 },
+    ];
+
+    const results: RecurringPayee[] = [];
+
+    for (const payee of payees) {
+      if (payee.deleted) continue;
+      const txns = payeeTxns.get(payee.id);
+      if (!txns || txns.length < 3) continue;
+
+      txns.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate day intervals between consecutive transactions
+      const intervals: number[] = [];
+      for (let i = 1; i < txns.length; i++) {
+        const diff =
+          (new Date(txns[i].date).getTime() - new Date(txns[i - 1].date).getTime()) /
+          86_400_000;
+        intervals.push(diff);
+      }
+
+      const sorted = [...intervals].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+
+      let bestPeriod: (typeof PERIODS)[0] | null = null;
+      let bestConfidence = 0;
+
+      for (const period of PERIODS) {
+        const tolerance = period.days * 0.3;
+        if (Math.abs(median - period.days) > tolerance) continue;
+        const within = intervals.filter(
+          (d) => Math.abs(d - period.days) <= tolerance
+        ).length;
+        const confidence = Math.round((within / intervals.length) * 100);
+        if (confidence > bestConfidence) {
+          bestConfidence = confidence;
+          bestPeriod = period;
+        }
+      }
+
+      if (!bestPeriod || bestConfidence < 60) continue;
+
+      const avgAmount = txns.reduce((s, t) => s + t.amount, 0) / txns.length;
+      const lastTxn = txns[txns.length - 1];
+      const nextDate = new Date(
+        new Date(lastTxn.date).getTime() + bestPeriod.days * 86_400_000
+      );
+
+      results.push({
+        id: payee.id,
+        name: payee.name,
+        frequency: bestPeriod.name,
+        confidence: bestConfidence,
+        avgAmount,
+        lastCharged: lastTxn.date,
+        nextExpected: nextDate.toISOString().split("T")[0],
+        transactionCount: txns.length,
+      });
+    }
+
+    return results.sort((a, b) => b.avgAmount - a.avgAmount);
+  }
+}
+
+export type RecurringFrequency = "weekly" | "fortnightly" | "monthly" | "quarterly" | "annual";
+
+export interface RecurringPayee {
+  id: string;
+  name: string;
+  frequency: RecurringFrequency;
+  confidence: number;
+  avgAmount: number;
+  lastCharged?: string;
+  nextExpected?: string;
+  transactionCount: number;
 }
 
 export const ynabService = new YNABService();

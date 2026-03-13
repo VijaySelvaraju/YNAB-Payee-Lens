@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import ynabService, { YNABBudget, PayeeAnalysis } from "@/services/ynabService";
+import { CurrencyFormat } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface YNABContextType {
@@ -10,6 +11,7 @@ interface YNABContextType {
   selectedBudgetId: string;
   budgets: YNABBudget[];
   payeeAnalysis: PayeeAnalysis[];
+  currencyFormat: CurrencyFormat | null;
   setApiToken: (token: string) => void;
   setSelectedBudgetId: (budgetId: string) => void;
   fetchBudgets: () => Promise<YNABBudget[]>;
@@ -26,6 +28,9 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const [selectedBudgetId, setSelectedBudgetIdState] = useState("");
   const [budgets, setBudgets] = useState<YNABBudget[]>([]);
   const [payeeAnalysis, setPayeeAnalysis] = useState<PayeeAnalysis[]>([]);
+
+  const currencyFormat: CurrencyFormat | null =
+    budgets.find((b) => b.id === selectedBudgetId)?.currency_format ?? null;
 
   const setApiToken = (token: string) => {
     // Clean the token by removing any whitespace and quotes
@@ -110,6 +115,7 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
         selectedBudgetId,
         budgets,
         payeeAnalysis,
+        currencyFormat,
         setApiToken,
         setSelectedBudgetId,
         fetchBudgets,
