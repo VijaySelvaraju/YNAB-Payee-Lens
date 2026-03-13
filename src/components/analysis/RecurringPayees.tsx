@@ -193,6 +193,7 @@ const RecurringPayees = () => {
                     <TableHead>Last Charged</TableHead>
                     <TableHead>Next Expected</TableHead>
                     <TableHead>Confidence</TableHead>
+                    <TableHead>Total Payments</TableHead>
                     <TableHead>Accounts</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -214,6 +215,7 @@ const RecurringPayees = () => {
                         <TableCell>
                           <span className="text-sm text-muted-foreground">{p.confidence}%</span>
                         </TableCell>
+                        <TableCell className="text-sm">{p.transactionCount}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {p.accounts.join(", ") || "—"}
                         </TableCell>
@@ -221,7 +223,7 @@ const RecurringPayees = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                         No results found. Try adjusting your filters.
                       </TableCell>
                     </TableRow>
