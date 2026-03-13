@@ -53,14 +53,16 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const fetchBudgets = async () => {
     setIsLoading(true);
     try {
-      // Validate token first
-      if (!apiToken || apiToken.trim().length < 10) {
+      // Read from ynabService (synchronously updated) rather than apiToken state,
+      // which may not have flushed yet when called immediately after setApiToken().
+      const effectiveToken = ynabService.getApiToken();
+      if (!effectiveToken || effectiveToken.trim().length < 10) {
         toast.error("Invalid API token. Please provide a valid YNAB API token.");
         setIsAuthenticated(false);
         return [];
       }
-      
-      console.log("Fetching budgets with token (first 4 chars):", apiToken.substring(0, 4) + "****");
+
+      console.log("Fetching budgets with token (first 4 chars):", effectiveToken.substring(0, 4) + "****");
       const budgetsList = await ynabService.getBudgets();
       setBudgets(budgetsList);
       setIsAuthenticated(true);
