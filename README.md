@@ -1,4 +1,4 @@
-# YNAB Payee Analyzer
+# YNAB PayeeLens
 
 A browser-based tool to analyze and clean up payees in your [YNAB (You Need A Budget)](https://www.youneedabudget.com/) budget.
 
@@ -65,6 +65,13 @@ Then open `http://localhost:5173` in your browser.
 | `npm run build` | Build for production |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run ESLint |
+
+## Branch Protection
+
+The `main` branch is protected with the following rules:
+
+- **Force pushes are restricted** – prevents `git push --force` from overwriting history.
+- **Deletions are restricted** – prevents the `main` branch from being accidentally deleted.
 
 ## Privacy
 
