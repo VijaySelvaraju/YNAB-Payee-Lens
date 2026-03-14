@@ -121,6 +121,16 @@ class YNABService {
     return this.apiToken;
   }
 
+  public clearCache(budgetId?: string): void {
+    if (budgetId) {
+      this._payeesCache.delete(budgetId);
+      this._transactionsCache.delete(budgetId);
+    } else {
+      this._payeesCache.clear();
+      this._transactionsCache.clear();
+    }
+  }
+
   private async fetchFromAPI(endpoint: string): Promise<any> {
     if (!this.apiToken) {
       throw new Error('API token not set');

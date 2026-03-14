@@ -10,9 +10,10 @@ import RecurringPayees from "@/components/analysis/RecurringPayees";
 import { useYNAB } from "@/contexts/YNABContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RefreshCw } from "lucide-react";
 
 const Index = () => {
-  const { isAuthenticated, payeeAnalysis, reset } = useYNAB();
+  const { isAuthenticated, payeeAnalysis, reset, refreshData, isLoading } = useYNAB();
   const [activeTab, setActiveTab] = useState<string>("unused-payees");
 
   // Show the appropriate view based on the authentication state
@@ -28,9 +29,9 @@ const Index = () => {
               Identify and clean up unused payees to simplify your YNAB budget
             </p>
           </div>
-          
+
           <ApiTokenForm />
-          
+
           <div className="mt-8 text-sm text-muted-foreground text-center">
             <h3 className="font-medium text-base mb-2">How It Works</h3>
             <ol className="space-y-2 text-left list-decimal list-inside">
@@ -46,15 +47,15 @@ const Index = () => {
           </div>
         </div>
       );
-    } 
-    
+    }
+
     if (isAuthenticated && payeeAnalysis.length === 0) {
       return (
         <div className="max-w-xl mx-auto py-8">
           <div className="flex justify-end mb-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={reset}
               className="text-ynab-gray hover:text-gray-900"
             >
@@ -65,20 +66,29 @@ const Index = () => {
         </div>
       );
     }
-    
+
     return (
       <div className="py-8">
-        <div className="flex justify-end mb-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+        <div className="flex justify-end gap-2 mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshData}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+            {isLoading ? "Refreshing…" : "Refresh Data"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={reset}
             className="text-ynab-gray hover:text-gray-900"
           >
             Start Over
           </Button>
         </div>
-        
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="unused-payees">Unused Payees</TabsTrigger>
