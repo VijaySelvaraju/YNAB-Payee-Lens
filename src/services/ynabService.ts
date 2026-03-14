@@ -372,12 +372,12 @@ class YNABService {
       this.getTransactions(budgetId),
     ]);
 
-    // Group transaction dates+amounts+accounts by payee
-    const payeeTxns = new Map<string, { date: string; amount: number; accountName: string }[]>();
+    // Group transaction dates+amounts+accounts+categories by payee
+    const payeeTxns = new Map<string, { date: string; amount: number; accountName: string; categoryName?: string }[]>();
     transactions.forEach((t) => {
       if (t.deleted || !t.payee_id) return;
       const entry = payeeTxns.get(t.payee_id) ?? [];
-      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000), accountName: t.account_name });
+      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000), accountName: t.account_name, categoryName: t.category_name });
       payeeTxns.set(t.payee_id, entry);
     });
 
@@ -435,6 +435,15 @@ class YNABService {
       );
       const accounts = [...new Set(txns.map((t) => t.accountName).filter(Boolean))];
 
+      // Most common category across transactions
+      const catCounts = new Map<string, number>();
+      for (const t of txns) {
+        if (t.categoryName) catCounts.set(t.categoryName, (catCounts.get(t.categoryName) ?? 0) + 1);
+      }
+      const topCategory = catCounts.size > 0
+        ? [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+        : undefined;
+
       results.push({
         id: payee.id,
         name: payee.name,
@@ -445,6 +454,7 @@ class YNABService {
         nextExpected: nextDate.toISOString().split("T")[0],
         transactionCount: txns.length,
         accounts,
+        topCategory,
       });
     }
 
@@ -464,6 +474,7 @@ export interface RecurringPayee {
   nextExpected?: string;
   transactionCount: number;
   accounts: string[];
+  topCategory?: string;
 }
 
 export const ynabService = new YNABService();
