@@ -1,8 +1,24 @@
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import ynabService, { YNABBudget, PayeeAnalysis } from "@/services/ynabService";
 import { CurrencyFormat } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  cacheSet,
+  cacheGet,
+  cacheClear,
+  saveApiToken,
+  loadApiToken,
+  clearApiToken,
+  getRememberToken,
+  saveSelectedBudget,
+  loadSelectedBudget,
+  clearSelectedBudget,
+  clearAll,
+} from "@/lib/storage";
+
+const BUDGETS_TTL = 30 * 60 * 1000; // 30 minutes
+const ANALYSIS_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface YNABContextType {
   isAuthenticated: boolean;
@@ -16,6 +32,7 @@ interface YNABContextType {
   setSelectedBudgetId: (budgetId: string) => void;
   fetchBudgets: () => Promise<YNABBudget[]>;
   analyzePayees: () => Promise<PayeeAnalysis[]>;
+  refreshData: () => Promise<void>;
   reset: () => void;
 }
 
@@ -32,10 +49,61 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
   const currencyFormat: CurrencyFormat | null =
     budgets.find((b) => b.id === selectedBudgetId)?.currency_format ?? null;
 
+  // On mount: restore state from localStorage if "remember" is enabled
+  useEffect(() => {
+    if (!getRememberToken()) return;
+
+    const savedToken = loadApiToken();
+    if (!savedToken) return;
+
+    ynabService.setApiToken(savedToken);
+    setApiTokenState(savedToken);
+
+    const restoreAnalysis = (budgetId: string) => {
+      const cachedAnalysis = cacheGet<PayeeAnalysis[]>(`analysis_${budgetId}`);
+      if (cachedAnalysis) setPayeeAnalysis(cachedAnalysis);
+    };
+
+    const cachedBudgets = cacheGet<YNABBudget[]>("budgets");
+
+    if (cachedBudgets) {
+      setBudgets(cachedBudgets);
+      setIsAuthenticated(true);
+      const savedBudgetId = loadSelectedBudget();
+      if (savedBudgetId) {
+        setSelectedBudgetIdState(savedBudgetId);
+        restoreAnalysis(savedBudgetId);
+      }
+    } else {
+      // Budgets cache expired — auto-fetch in the background
+      setIsLoading(true);
+      ynabService
+        .getBudgets()
+        .then((budgetsList) => {
+          setBudgets(budgetsList);
+          setIsAuthenticated(true);
+          cacheSet("budgets", budgetsList, BUDGETS_TTL);
+          const savedBudgetId = loadSelectedBudget();
+          if (savedBudgetId) {
+            setSelectedBudgetIdState(savedBudgetId);
+            restoreAnalysis(savedBudgetId);
+          }
+        })
+        .catch(() => {
+          // Token is stale or revoked — show login form
+          clearApiToken();
+          clearSelectedBudget();
+          setApiTokenState("");
+          ynabService.setApiToken("");
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const setApiToken = (token: string) => {
     // Clean the token by removing any whitespace and quotes
     const cleanToken = token.trim().replace(/^["']|["']$/g, "");
-    
+
     // Check if token looks like a URL or other non-token format
     if (cleanToken.includes("http") || cleanToken.length < 10) {
       toast.error("The API token format appears invalid. Please check your YNAB token.");
@@ -44,10 +112,15 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
 
     setApiTokenState(cleanToken);
     ynabService.setApiToken(cleanToken);
+
+    if (getRememberToken()) {
+      saveApiToken(cleanToken);
+    }
   };
 
   const setSelectedBudgetId = (budgetId: string) => {
     setSelectedBudgetIdState(budgetId);
+    saveSelectedBudget(budgetId);
   };
 
   const fetchBudgets = async () => {
@@ -65,6 +138,7 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
       console.log("Fetching budgets with token (first 4 chars):", effectiveToken.substring(0, 4) + "****");
       const budgetsList = await ynabService.getBudgets();
       setBudgets(budgetsList);
+      cacheSet("budgets", budgetsList, BUDGETS_TTL);
       setIsAuthenticated(true);
       toast.success("Successfully connected to YNAB");
       return budgetsList;
@@ -88,6 +162,7 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     try {
       const analysis = await ynabService.analyzePayees(selectedBudgetId);
       setPayeeAnalysis(analysis);
+      cacheSet(`analysis_${selectedBudgetId}`, analysis, ANALYSIS_TTL);
       toast.success(`Analysis complete: Found ${analysis.length} payees`);
       return analysis;
     } catch (error) {
@@ -99,6 +174,13 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshData = async () => {
+    if (!selectedBudgetId) return;
+    cacheClear(`analysis_${selectedBudgetId}`);
+    ynabService.clearCache(selectedBudgetId);
+    await analyzePayees();
+  };
+
   const reset = () => {
     setIsAuthenticated(false);
     setApiTokenState("");
@@ -106,6 +188,8 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
     setBudgets([]);
     setPayeeAnalysis([]);
     ynabService.setApiToken("");
+    ynabService.clearCache();
+    clearAll();
   };
 
   return (
@@ -122,7 +206,8 @@ export const YNABProvider = ({ children }: { children: ReactNode }) => {
         setSelectedBudgetId,
         fetchBudgets,
         analyzePayees,
-        reset
+        refreshData,
+        reset,
       }}
     >
       {children}

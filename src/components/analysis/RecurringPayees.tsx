@@ -29,6 +29,11 @@ const FREQUENCY_COLORS: Record<RecurringFrequency, string> = {
   annual: "bg-orange-100 text-orange-800",
 };
 
+const TODAY = new Date().toISOString().split("T")[0]; // e.g. "2026-03-14"
+
+const isActive = (p: RecurringPayee) =>
+  !!p.nextExpected && p.nextExpected >= TODAY;
+
 const RecurringPayees = () => {
   const { selectedBudgetId, budgets, currencyFormat } = useYNAB();
   const [payees, setPayees] = useState<RecurringPayee[]>([]);
@@ -60,46 +65,55 @@ const RecurringPayees = () => {
     }
   };
 
-  const filteredPayees = payees
-    .filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFreq = frequencyFilter === "all" || p.frequency === frequencyFilter;
-      const isTransfer = p.name.toLowerCase().startsWith("transfer : ");
-      return matchesSearch && matchesFreq && (!hideTransfers || !isTransfer);
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "nextExpected":
-          if (!a.nextExpected && !b.nextExpected) return 0;
-          if (!a.nextExpected) return 1;
-          if (!b.nextExpected) return -1;
-          return a.nextExpected.localeCompare(b.nextExpected);
-        case "confidence":
-          return b.confidence - a.confidence;
-        case "avgAmount":
-        default:
-          return b.avgAmount - a.avgAmount;
-      }
-    });
+  const applyFilters = (list: RecurringPayee[]) =>
+    list
+      .filter((p) => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFreq = frequencyFilter === "all" || p.frequency === frequencyFilter;
+        const isTransfer = p.name.toLowerCase().startsWith("transfer : ");
+        return matchesSearch && matchesFreq && (!hideTransfers || !isTransfer);
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "name":
+            return a.name.localeCompare(b.name);
+          case "nextExpected":
+            if (!a.nextExpected && !b.nextExpected) return 0;
+            if (!a.nextExpected) return 1;
+            if (!b.nextExpected) return -1;
+            return a.nextExpected.localeCompare(b.nextExpected);
+          case "confidence":
+            return b.confidence - a.confidence;
+          case "avgAmount":
+          default:
+            return b.avgAmount - a.avgAmount;
+        }
+      });
+
+  const activePayees = applyFilters(payees.filter(isActive));
+  const inactivePayees = applyFilters(payees.filter((p) => !isActive(p)));
+  const totalFiltered = activePayees.length + inactivePayees.length;
 
   const exportToXLSX = () => {
-    const data = filteredPayees.map((p) => ({
-      "Payee Name": p.name,
-      Frequency: FREQUENCY_LABELS[p.frequency],
-      "Avg Amount": formatCurrency(p.avgAmount, currencyFormat),
-      "Last Charged": formatDate(p.lastCharged),
-      "Next Expected": formatDate(p.nextExpected),
-      "Confidence %": p.confidence,
-      Transactions: p.transactionCount,
-      Accounts: p.accounts.join(", "),
-    }));
+    const toRows = (list: RecurringPayee[], status: string) =>
+      list.map((p) => ({
+        Status: status,
+        "Payee Name": p.name,
+        Category: p.topCategory ?? "—",
+        Frequency: FREQUENCY_LABELS[p.frequency],
+        "Avg Amount": formatCurrency(p.avgAmount, currencyFormat),
+        "Last Charged": formatDate(p.lastCharged),
+        "Next Expected": formatDate(p.nextExpected),
+        "Confidence %": p.confidence,
+        Transactions: p.transactionCount,
+        Accounts: p.accounts.join(", "),
+      }));
 
+    const data = [...toRows(activePayees, "Active"), ...toRows(inactivePayees, "Inactive")];
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     ws["!cols"] = [
-      { wch: 30 }, { wch: 14 }, { wch: 14 },
+      { wch: 10 }, { wch: 30 }, { wch: 22 }, { wch: 14 }, { wch: 14 },
       { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Recurring Payees");
@@ -116,6 +130,42 @@ const RecurringPayees = () => {
     );
   }
 
+  const tableHeaders = (
+    <TableRow className="bg-muted/50">
+      <TableHead>Payee</TableHead>
+      <TableHead>Category</TableHead>
+      <TableHead>Frequency</TableHead>
+      <TableHead>Avg Amount</TableHead>
+      <TableHead>Last Charged</TableHead>
+      <TableHead>Next Expected</TableHead>
+      <TableHead>Confidence</TableHead>
+      <TableHead>Total Payments</TableHead>
+      <TableHead>Accounts</TableHead>
+    </TableRow>
+  );
+
+  const tableRow = (p: RecurringPayee) => (
+    <TableRow key={p.id} className="hover:bg-muted/30">
+      <TableCell className="font-medium">{p.name}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">{p.topCategory ?? "—"}</TableCell>
+      <TableCell>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${FREQUENCY_COLORS[p.frequency]}`}>
+          {FREQUENCY_LABELS[p.frequency]}
+        </span>
+      </TableCell>
+      <TableCell>{formatCurrency(p.avgAmount, currencyFormat)}</TableCell>
+      <TableCell>{formatDate(p.lastCharged)}</TableCell>
+      <TableCell>{formatDate(p.nextExpected)}</TableCell>
+      <TableCell>
+        <span className="text-sm text-muted-foreground">{p.confidence}%</span>
+      </TableCell>
+      <TableCell className="text-sm">{p.transactionCount}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">
+        {p.accounts.join(", ") || "—"}
+      </TableCell>
+    </TableRow>
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -131,6 +181,7 @@ const RecurringPayees = () => {
           </div>
         ) : (
           <>
+            {/* Controls */}
             <div className="flex flex-col sm:flex-row gap-2 flex-wrap items-center justify-between">
               <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                 <Input
@@ -183,59 +234,54 @@ const RecurringPayees = () => {
               </Button>
             </div>
 
-            <div className="border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Payee</TableHead>
-                    <TableHead>Frequency</TableHead>
-                    <TableHead>Avg Amount</TableHead>
-                    <TableHead>Last Charged</TableHead>
-                    <TableHead>Next Expected</TableHead>
-                    <TableHead>Confidence</TableHead>
-                    <TableHead>Total Payments</TableHead>
-                    <TableHead>Accounts</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPayees.length > 0 ? (
-                    filteredPayees.map((p) => (
-                      <TableRow key={p.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{p.name}</TableCell>
-                        <TableCell>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${FREQUENCY_COLORS[p.frequency]}`}
-                          >
-                            {FREQUENCY_LABELS[p.frequency]}
-                          </span>
-                        </TableCell>
-                        <TableCell>{formatCurrency(p.avgAmount, currencyFormat)}</TableCell>
-                        <TableCell>{formatDate(p.lastCharged)}</TableCell>
-                        <TableCell>{formatDate(p.nextExpected)}</TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">{p.confidence}%</span>
-                        </TableCell>
-                        <TableCell className="text-sm">{p.transactionCount}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {p.accounts.join(", ") || "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                        No results found. Try adjusting your filters.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            {/* Active subscriptions */}
+            {activePayees.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
+                    Active
+                  </span>
+                  <span className="text-sm text-muted-foreground">{activePayees.length} subscription{activePayees.length !== 1 ? "s" : ""} — next payment is upcoming</span>
+                </div>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>{tableHeaders}</TableHeader>
+                    <TableBody>{activePayees.map(tableRow)}</TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Inactive subscriptions */}
+            {inactivePayees.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 inline-block" />
+                    Inactive
+                  </span>
+                  <span className="text-sm text-muted-foreground">{inactivePayees.length} subscription{inactivePayees.length !== 1 ? "s" : ""} — expected date has passed</span>
+                </div>
+                <div className="border rounded-md overflow-hidden opacity-70">
+                  <Table>
+                    <TableHeader>{tableHeaders}</TableHeader>
+                    <TableBody>{inactivePayees.map(tableRow)}</TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {totalFiltered === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                No results found. Try adjusting your filters.
+              </div>
+            )}
 
             <div className="text-sm text-muted-foreground flex justify-between">
-              <span>Found {payees.length} recurring payees</span>
-              {filteredPayees.length !== payees.length && (
-                <span>Showing {filteredPayees.length} of {payees.length}</span>
+              <span>Found {payees.length} recurring payees ({activePayees.length} active, {inactivePayees.length} inactive)</span>
+              {totalFiltered !== payees.length && (
+                <span>Showing {totalFiltered} of {payees.length}</span>
               )}
             </div>
           </>
