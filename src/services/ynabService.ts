@@ -24,6 +24,20 @@ export interface YNABPayee {
   deleted: boolean;
 }
 
+export interface YNABSubTransaction {
+  id: string;
+  transaction_id: string;
+  amount: number;
+  memo?: string;
+  payee_id?: string;
+  payee_name?: string;
+  category_id?: string;
+  category_name?: string;
+  transfer_account_id?: string;
+  transfer_transaction_id?: string;
+  deleted: boolean;
+}
+
 export interface YNABTransaction {
   id: string;
   date: string;
@@ -46,6 +60,7 @@ export interface YNABTransaction {
   account_name: string;
   payee_name?: string;
   category_name?: string;
+  subtransactions?: YNABSubTransaction[];
 }
 
 export interface YNABCategory {
@@ -171,7 +186,7 @@ class YNABService {
 
   public async getTransactions(budgetId: string): Promise<YNABTransaction[]> {
     if (this._transactionsCache.has(budgetId)) return this._transactionsCache.get(budgetId)!;
-    const data = await this.fetchFromAPI(`/budgets/${budgetId}/transactions`);
+    const data = await this.fetchFromAPI(`/budgets/${budgetId}/transactions?since_date=1970-01-01`);
     this._transactionsCache.set(budgetId, data.transactions);
     return data.transactions;
   }
@@ -194,18 +209,32 @@ class YNABService {
 
     // Process transactions to find the last time each payee was used and count transactions
     transactions.forEach(transaction => {
-      if (transaction.deleted || !transaction.payee_id) return;
+      if (transaction.deleted) return;
 
       const transactionDate = transaction.date;
-      const payeeId = transaction.payee_id;
+      const uniquePayees = new Set<string>();
 
-      // Update last used date
-      if (!payeeLastUsed.has(payeeId) || transactionDate > payeeLastUsed.get(payeeId)!) {
-        payeeLastUsed.set(payeeId, transactionDate);
+      if (transaction.payee_id) {
+        uniquePayees.add(transaction.payee_id);
       }
 
-      // Increment transaction count
-      payeeTransactionCount.set(payeeId, (payeeTransactionCount.get(payeeId) || 0) + 1);
+      if (transaction.subtransactions && transaction.subtransactions.length > 0) {
+        transaction.subtransactions.forEach(sub => {
+          if (!sub.deleted && sub.payee_id) {
+            uniquePayees.add(sub.payee_id);
+          }
+        });
+      }
+
+      uniquePayees.forEach(payeeId => {
+        // Update last used date
+        if (!payeeLastUsed.has(payeeId) || transactionDate > payeeLastUsed.get(payeeId)!) {
+          payeeLastUsed.set(payeeId, transactionDate);
+        }
+
+        // Increment transaction count
+        payeeTransactionCount.set(payeeId, (payeeTransactionCount.get(payeeId) || 0) + 1);
+      });
     });
 
     // Current date for calculating "days since last used"
@@ -300,47 +329,79 @@ class YNABService {
 
     // Process transactions to build analysis
     transactions.forEach(transaction => {
-      if (transaction.deleted || !transaction.payee_id) return;
+      if (transaction.deleted) return;
 
-      const payeeAnalysis = payeeAnalysisMap.get(transaction.payee_id);
-      if (!payeeAnalysis) return;
-
-      // Increment transaction count
-      payeeAnalysis.transactionCount += 1;
-
-      // Update first and last transaction dates
       const transactionDate = new Date(transaction.date);
-      if (!payeeAnalysis.firstTransaction || transactionDate < new Date(payeeAnalysis.firstTransaction)) {
-        payeeAnalysis.firstTransaction = transaction.date;
+      const incrementedPayees = new Set<string>();
+
+      // Decompose transaction (including split subtransactions) into parts to analyze
+      const parts: { payeeId: string; categoryId?: string; amount: number }[] = [];
+
+      if (transaction.subtransactions && transaction.subtransactions.length > 0) {
+        transaction.subtransactions.forEach(sub => {
+          if (sub.deleted) return;
+          const payeeId = sub.payee_id || transaction.payee_id;
+          if (payeeId) {
+            parts.push({
+              payeeId,
+              categoryId: sub.category_id,
+              amount: sub.amount
+            });
+          }
+        });
+      } else {
+        if (transaction.payee_id) {
+          parts.push({
+            payeeId: transaction.payee_id,
+            categoryId: transaction.category_id,
+            amount: transaction.amount
+          });
+        }
       }
-      if (!payeeAnalysis.lastTransaction || transactionDate > new Date(payeeAnalysis.lastTransaction)) {
-        payeeAnalysis.lastTransaction = transaction.date;
-      }
 
-      // Update total amount (convert from milliunits)
-      const amount = Math.abs(transaction.amount / 1000);
-      payeeAnalysis.totalAmount += amount;
+      parts.forEach(part => {
+        const payeeAnalysis = payeeAnalysisMap.get(part.payeeId);
+        if (!payeeAnalysis) return;
 
-      // Update category breakdown
-      if (transaction.category_id) {
-        const categoryId = transaction.category_id;
-        const categoryName = categoryMap.get(categoryId) || 'Unknown Category';
+        // Increment transaction count once per unique payee per parent transaction
+        if (!incrementedPayees.has(part.payeeId)) {
+          payeeAnalysis.transactionCount += 1;
+          incrementedPayees.add(part.payeeId);
 
-        let categoryBreakdown = payeeAnalysis.categoryBreakdown.find(cb => cb.categoryId === categoryId);
-        if (!categoryBreakdown) {
-          categoryBreakdown = {
-            categoryId,
-            categoryName,
-            count: 0,
-            total: 0,
-            percentage: 0
-          };
-          payeeAnalysis.categoryBreakdown.push(categoryBreakdown);
+          // Update first and last transaction dates
+          if (!payeeAnalysis.firstTransaction || transactionDate < new Date(payeeAnalysis.firstTransaction)) {
+            payeeAnalysis.firstTransaction = transaction.date;
+          }
+          if (!payeeAnalysis.lastTransaction || transactionDate > new Date(payeeAnalysis.lastTransaction)) {
+            payeeAnalysis.lastTransaction = transaction.date;
+          }
         }
 
-        categoryBreakdown.count += 1;
-        categoryBreakdown.total += amount;
-      }
+        // Update total amount (convert from milliunits)
+        const amount = Math.abs(part.amount / 1000);
+        payeeAnalysis.totalAmount += amount;
+
+        // Update category breakdown
+        if (part.categoryId) {
+          const categoryId = part.categoryId;
+          const categoryName = categoryMap.get(categoryId) || 'Unknown Category';
+
+          let categoryBreakdown = payeeAnalysis.categoryBreakdown.find(cb => cb.categoryId === categoryId);
+          if (!categoryBreakdown) {
+            categoryBreakdown = {
+              categoryId,
+              categoryName,
+              count: 0,
+              total: 0,
+              percentage: 0
+            };
+            payeeAnalysis.categoryBreakdown.push(categoryBreakdown);
+          }
+
+          categoryBreakdown.count += 1;
+          categoryBreakdown.total += amount;
+        }
+      });
     });
 
     // Calculate averages and percentages
@@ -367,18 +428,66 @@ class YNABService {
   }
 
   public async detectRecurringPayees(budgetId: string): Promise<RecurringPayee[]> {
-    const [payees, transactions] = await Promise.all([
+    const [payees, transactions, categoryGroups] = await Promise.all([
       this.getPayees(budgetId),
       this.getTransactions(budgetId),
+      this.getCategories(budgetId),
     ]);
 
     // Group transaction dates+amounts+accounts+categories by payee
     const payeeTxns = new Map<string, { date: string; amount: number; accountName: string; categoryName?: string }[]>();
+    
+    // Create a flat map of all categories for easy lookup
+    const categoryMap = new Map<string, string>();
+    categoryGroups.forEach(group => {
+      group.categories.forEach(category => {
+        categoryMap.set(category.id, category.name);
+      });
+    });
+
     transactions.forEach((t) => {
-      if (t.deleted || !t.payee_id) return;
-      const entry = payeeTxns.get(t.payee_id) ?? [];
-      entry.push({ date: t.date, amount: Math.abs(t.amount / 1000), accountName: t.account_name, categoryName: t.category_name });
-      payeeTxns.set(t.payee_id, entry);
+      if (t.deleted) return;
+
+      // Group parts of this transaction by payeeId to avoid 0-day intervals on split transactions
+      const payeeAmounts = new Map<string, number>();
+      const payeeCategories = new Map<string, string>();
+
+      if (t.subtransactions && t.subtransactions.length > 0) {
+        t.subtransactions.forEach(sub => {
+          if (sub.deleted) return;
+          const payeeId = sub.payee_id || t.payee_id;
+          if (payeeId) {
+            const amount = Math.abs(sub.amount / 1000);
+            payeeAmounts.set(payeeId, (payeeAmounts.get(payeeId) || 0) + amount);
+            if (sub.category_id) {
+              const catName = categoryMap.get(sub.category_id);
+              if (catName) {
+                payeeCategories.set(payeeId, catName);
+              }
+            }
+          }
+        });
+      } else {
+        if (t.payee_id) {
+          const amount = Math.abs(t.amount / 1000);
+          payeeAmounts.set(t.payee_id, amount);
+          if (t.category_name) {
+            payeeCategories.set(t.payee_id, t.category_name);
+          }
+        }
+      }
+
+      // Add combined entries per payee to payeeTxns
+      payeeAmounts.forEach((amount, payeeId) => {
+        const entry = payeeTxns.get(payeeId) ?? [];
+        entry.push({
+          date: t.date,
+          amount,
+          accountName: t.account_name,
+          categoryName: payeeCategories.get(payeeId)
+        });
+        payeeTxns.set(payeeId, entry);
+      });
     });
 
     const PERIODS: { name: RecurringFrequency; days: number }[] = [

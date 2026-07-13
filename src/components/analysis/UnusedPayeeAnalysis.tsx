@@ -56,7 +56,7 @@ const UnusedPayeesAnalysis = () => {
       const usageCount = payee.transactionCount || 0;
       const withinUsageRange = usageCount >= usageRange[0] && usageCount <= usageRange[1];
 
-      return matchesSearch && (!hideTransfers || !isTransfer) && withinUsageRange;
+      return payee.isUnused && matchesSearch && (!hideTransfers || !isTransfer) && withinUsageRange;
     })
     .sort((a, b) => {
       switch (sortBy) {
